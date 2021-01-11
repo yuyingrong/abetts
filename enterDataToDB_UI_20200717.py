@@ -1,4 +1,7 @@
 
+# Yuying 202001007
+# Added evaluation to prevent reading empty rows
+
 # Yuying 20200717
 # Added more datetime entry options
 # Added more annotations; eliminated the usage of [1:-1] to eliminate quotations marks in case the CSV does not have quotation marks around every entry
@@ -98,6 +101,8 @@ def EnterRawToDB(InDir,OutFile):
     count_added=0
     count_original=0
     for row in c[1:]:
+      if len(row)<5:
+        continue
       row=row.strip('\n').split(',')
 
       # eliminates invalid rows
@@ -267,8 +272,8 @@ root.title('Pool data to DB')
 
 def SelectInDir():
   global InDirEntry
-  InDirEntry=filedialog.askdirectory(initialdir='/',title='Select a file...')
-  PathLabel=Label(root,text='Merging from folder: '+InDirEntry'\nThe date format must be MM/DD/YYYY or MM/DD/YY.').pack()
+  InDirEntry=filedialog.askdirectory(initialdir='/',title='Select a folder...')
+  PathLabel=Label(root,text=f'Merging from folder: {InDirEntry}\nThe date format must be MM/DD/YYYY or MM/DD/YY.').pack()
   return None
 
 InDirButton=Button(root,text='Select folder to enter',command=SelectInDir).pack()
@@ -277,7 +282,7 @@ def SelectOutFile():
   global OutFileEntry
   try:
     OutFileEntry=filedialog.asksaveasfilename(initialdir=InDirEntry,title='Select a file...',filetypes=(('databank files','*.db'),('all files','*.*')),defaultextension='.db')
-    PathLabel=Label(root,text='Output file name: '+OutFileEntry+'\nMake sure the above filename has a proper extension.').pack()
+    PathLabel=Label(root,text=f'Output file name: {OutFileEntry}\nMake sure the above filename has a proper extension.').pack()
     return None
   except NameError:
     print('Please enter the input folder first.')
