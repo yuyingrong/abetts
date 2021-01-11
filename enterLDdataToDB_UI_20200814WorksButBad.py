@@ -1,5 +1,5 @@
 
-# Yuying 20200814
+# Yuying 20201209
 # Working properly, but does not handle expected cols missing from raw data
 # Not smart efficiency wise; will optimize when time allows
 
@@ -20,6 +20,7 @@ def EnterRawToDB(InDir,OutFile):
 
   # creates header with 18 parameters of interest in LD experiment
   cur.execute('CREATE TABLE IF NOT EXISTS TS_LD (Date TEXT,ID TEXT,SessionLength REAL,NumberOfTrial REAL,PercentCorrect REAL,NumberOfReversal REAL,TotalITITouches REAL,TotalBlankTouches REAL,MeanRewardCollectionLatency REAL,MeanCorrectTouchLatency REAL,MeanIncorrectTouchLatency REAL,SessionLengthTo1stReversal REAL,SessionLengthTo2ndReversal REAL,NumberOfTrialTo1stReversal REAL,NumberOfTrialTo2ndReversal REAL,PercentCorrectTo1stReversal REAL,PercentCorrectTo2ndReversal REAL,CorrectPosition TEXT,UNIQUE(Date,ID,SessionLength))')
+  cur.execute('CREATE TABLE IF NOT EXISTS TS_LDtrain (Date TEXT,ID TEXT,SessionLength REAL,NumberOfTrial REAL,PercentCorrect REAL,NumberOfReversal REAL,TotalITITouches REAL,TotalBlankTouches REAL,MeanRewardCollectionLatency REAL,MeanCorrectTouchLatency REAL,MeanIncorrectTouchLatency REAL,SessionLengthTo1stReversal REAL,SessionLengthTo2ndReversal REAL,NumberOfTrialTo1stReversal REAL,NumberOfTrialTo2ndReversal REAL,PercentCorrectTo1stReversal REAL,PercentCorrectTo2ndReversal REAL,CorrectPosition TEXT,UNIQUE(Date,ID,SessionLength))')
 
   # dumps file content into memory
   for rawsheet in listdir(InDir):
@@ -45,7 +46,7 @@ def EnterRawToDB(InDir,OutFile):
 
     # vars have been created; now indexing
     for i in range(len(header)):
-      if 'date' in header[i].lower():
+      if 'date' in header[i].lower() or 'schedule_start_time' in header[i].lower():
         iDate=i
         continue
       if 'animal' in header[i].lower() and 'id' in header[i].lower():
@@ -53,7 +54,7 @@ def EnterRawToDB(InDir,OutFile):
         continue
 
       if 'end summary' in header[i].lower():
-        if 'condition' in header[i].lower():
+        if 'condition' in header[i].lower() or 'session time' in header[i].lower():
           iSessionLength=i
           continue
         if 'trials completed' in header[i].lower():
@@ -114,6 +115,8 @@ def EnterRawToDB(InDir,OutFile):
     count_original=0
     
     for row in c[1:]:
+      if len(row)<5:
+        continue
       row=row.strip('\n').split(',')
 
       # eliminates invalid rows
@@ -123,16 +126,19 @@ def EnterRawToDB(InDir,OutFile):
         continue
 
       #1 enters Date
-      Date=str(row[iDate]).strip('"').split(' ')[0]
-      # for the below code to work, the input date format must be MM/DD/YYYY or MM/DD/YY
-      try:
-        # in case the format is MM/DD/YYYY
-        Date=datetime.strptime(Date,'%m/%d/%Y').strftime('%Y-%m-%d')
-      except ValueError:
-        # in case the format is MM/DD/YY
-        Date=datetime.strptime(Date,'%m/%d/%y').strftime('%Y-%m-%d')
-        # if a third datetime format or an invalid format is entered, the following error message will be printed:
-        # 'During handling of the above exception, another exception occurred'
+      if 'T' in str(row[iDate]):
+        Date=str(row[iDate]).strip('"').split('T')[0]
+      else:
+        Date=str(row[iDate]).strip('"').split(' ')[0]
+        # for the below code to work, the input date format must be MM/DD/YYYY or MM/DD/YY
+        try:
+          # in case the format is MM/DD/YYYY
+          Date=datetime.strptime(Date,'%m/%d/%Y').strftime('%Y-%m-%d')
+        except ValueError:
+          # in case the format is MM/DD/YY
+          Date=datetime.strptime(Date,'%m/%d/%y').strftime('%Y-%m-%d')
+          # if a third datetime format or an invalid format is entered, the following error message will be printed:
+          # 'During handling of the above exception, another exception occurred'
         
       #2 enters Animal ID
       ID=str(row[iID]).strip('"')
@@ -280,7 +286,10 @@ def EnterRawToDB(InDir,OutFile):
       CorrectPosition=','.join([str(row[i]).strip('"') for i in iCorrectPosition if not iCorrectPosition.index(i) in iZeroVals and str(row[i]).strip('"').isdigit()])
 
       # enters all data to databank; rows with the same Date, ID, and SessionLength are not entered
-      cur.execute('INSERT OR IGNORE INTO TS_LD (Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition))
+      if '8' in CorrectPosition or '11' in CorrectPosition:
+        cur.execute('INSERT OR IGNORE INTO TS_LDtrain (Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition))
+      else:
+        cur.execute('INSERT OR IGNORE INTO TS_LD (Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(Date,ID,SessionLength,NumberOfTrial,PercentCorrect,NumberOfReversal,TotalITITouches,TotalBlankTouches,MeanRewardCollectionLatency,MeanCorrectTouchLatency,MeanIncorrectTouchLatency,SessionLengthTo1stReversal,SessionLengthTo2ndReversal,NumberOfTrialTo1stReversal,NumberOfTrialTo2ndReversal,PercentCorrectTo1stReversal,PercentCorrectTo2ndReversal,CorrectPosition))
 
       # counts how many rows are read and entered
       count_original+=1
@@ -309,7 +318,7 @@ root.title('Pool data to DB')
 
 def SelectInDir():
   global InDirEntry
-  InDirEntry=filedialog.askdirectory(initialdir='/',title='Select a file...')
+  InDirEntry=filedialog.askdirectory(initialdir='/',title='Select a folder...')
   PathLabel=Label(root,text=f'Merging from folder: {InDirEntry}.\nThe date format must be MM/DD/YYYY or MM/DD/YY.').pack()
   return None
 
